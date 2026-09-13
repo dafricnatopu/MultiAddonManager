@@ -1181,7 +1181,15 @@ KHook::Return<void> MultiAddonManager::Hook_GameFrame(IServerGameDLL *pThis, boo
 KHook::Return<void> MultiAddonManager::Hook_PostEvent(IGameEventSystem *pThis, CSplitScreenSlot nSlot, bool bLocalOnly, int nClientCount, const uint64 *clients,
 	INetworkMessageInternal *pEvent, const CNetMessage *pData, unsigned long nSize, NetChannelBufType_t bufType)
 {
+	// PostEvent can be fired during a map transition before LoadEventsFromFile
+	// has supplied the event manager. Do not touch the event payload until the
+	// manager and the engine-provided pointers are available.
+	if (!g_pGameEventManager || !pEvent || !pData || !clients)
+		return {KHook::Action::Ignore};
+
 	NetMessageInfo_t *info = pEvent->GetNetMessageInfo();
+	if (!info)
+		return {KHook::Action::Ignore};
 
 	if (mm_block_disconnect_messages.Get() && info->m_MessageId == GE_Source1LegacyGameEvent)
 	{
