@@ -1274,7 +1274,18 @@ KHook::Return<void> MultiAddonManager::Hook_ReplyConnection(INetworkGameServer *
 	if (mm_addon_debug.Get())
 		Message("%s: Sending addons %s to steamID64 %lli\n", __func__, addons->Get(), steamID64);
 
-	m_hookReplyConnection.CallOriginal(pThis, pClient);
+	// Use KHook's per-call original target, matching the other function hooks in
+	// this plugin. Calling the Function wrapper directly can re-enter the detour
+	// on newer Metamod/KHook builds during the connection handshake.
+	auto pfnReplyConnection = (ReplyConnection_t)KHook::GetOriginalFunction();
+	if (!pfnReplyConnection)
+	{
+		Panic("%s: KHook did not provide the original ReplyConnection function\n", __func__);
+		*addons = originalAddons;
+		return {KHook::Action::Ignore};
+	}
+
+	pfnReplyConnection(pThis, pClient);
 
 	*addons = originalAddons;
 
